@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Two Palms Financial · Marketing ROI Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
+<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: 'DM Sans', sans-serif; background: #FAFAF7; color: #2D2D2D; }
+  button { font-family: inherit; }
+  input { font-family: inherit; }
+  input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+  table { font-variant-numeric: tabular-nums; }
+  .tp-btn:hover { filter: brightness(1.08); }
+  .tp-tab:hover { color: #1B5E4B !important; }
+  .tp-card-hover { transition: all 0.15s ease; }
+  .tp-card-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Recharts;
+
+const COLORS = {
+  primary: "#1B5E4B",
+  primaryLight: "#2A7A63",
+  primaryDark: "#0F3D31",
+  accent: "#E87461",
+  sand: "#F5E6D0",
+  sandLight: "#FBF4EA",
+  bg: "#FAFAF7",
+  card: "#FFFFFF",
+  text: "#2D2D2D",
+  textMuted: "#6B7280",
+  border: "#E5E1D8",
+  success: "#2A7A63",
+  warning: "#D97706",
+  danger: "#DC2626",
+};
+
+const CHART_COLORS = ["#1B5E4B", "#E87461", "#D97706", "#6366F1", "#2563EB", "#059669", "#DC2626", "#8B5CF6"];
+
+const TABS = [
+  { id: "dashboard", label: "Dashboard", icon: "◻" },
+  { id: "channels", label: "Channels", icon: "☰" },
+  { id: "calculator", label: "Calculator", icon: "⊕" },
+  { id: "settings", label: "Settings", icon: "⚙" },
+];
+
+const DEFAULT_SETTINGS = {
+  hourlyRate: 300,
+  avgRevenuePerClient: 9000,
+  avgClientLifetimeYears: 6,
+  discoveryToClientPct: 8,
+};
+
+const SAMPLE_CHANNELS = [
+  {
+    id: "ch_1", name: "LinkedIn Videos", type: "ongoing", startDate: "2025-09",
+    entries: [
+      { month: "2025-09", dollars: 0, hours: 12, leads: 1, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2025-10", dollars: 0, hours: 14, leads: 2, discoveryCalls: 1, clientsWon: 0 },
+      { month: "2025-11", dollars: 0, hours: 12, leads: 1, discoveryCalls: 1, clientsWon: 0 },
+      { month: "2025-12", dollars: 0, hours: 10, leads: 0, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2026-01", dollars: 0, hours: 14, leads: 3, discoveryCalls: 2, clientsWon: 1 },
+      { month: "2026-02", dollars: 0, hours: 12, leads: 2, discoveryCalls: 1, clientsWon: 0 },
+      { month: "2026-03", dollars: 0, hours: 13, leads: 1, discoveryCalls: 1, clientsWon: 0 },
+    ],
+  },
+  {
+    id: "ch_2", name: "Friday Newsletter", type: "ongoing", startDate: "2025-10",
+    entries: [
+      { month: "2025-10", dollars: 29, hours: 4, leads: 0, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2025-11", dollars: 29, hours: 4, leads: 1, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2025-12", dollars: 29, hours: 3, leads: 0, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2026-01", dollars: 29, hours: 4, leads: 1, discoveryCalls: 1, clientsWon: 0 },
+      { month: "2026-02", dollars: 29, hours: 5, leads: 0, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2026-03", dollars: 29, hours: 4, leads: 1, discoveryCalls: 0, clientsWon: 0 },
+    ],
+  },
+  {
+    id: "ch_3", name: "Networking Events", type: "ongoing", startDate: "2026-01",
+    entries: [
+      { month: "2026-01", dollars: 150, hours: 6, leads: 2, discoveryCalls: 1, clientsWon: 0 },
+      { month: "2026-02", dollars: 75, hours: 4, leads: 1, discoveryCalls: 0, clientsWon: 0 },
+      { month: "2026-03", dollars: 150, hours: 8, leads: 3, discoveryCalls: 2, clientsWon: 1 },
+    ],
+  },
+];
+
+const STORAGE_KEY = "twopalms_roi_tracker_v1";
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function saveState(state) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function MetricCard({ label, value, sub, color, small }) {
+  return (
+    <div style={{
+      background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10,
+      padding: small ? "14px 16px" : "20px 24px", flex: 1, minWidth: small ? 140 : 180,
+    }}>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: COLORS.textMuted, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: small ? 22 : 28, fontWeight: 700, color: color || COLORS.text, fontFamily: "'Instrument Serif', serif", lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function InputField({ label, value, onChange, type = "text", prefix, suffix, min, step, helpText }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 5 }}>{label}</label>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {prefix && <span style={{ padding: "8px 10px", background: COLORS.sandLight, border: `1px solid ${COLORS.border}`, borderRight: "none", borderRadius: "6px 0 0 6px", fontSize: 14, color: COLORS.textMuted }}>{prefix}</span>}
+        <input
+          type={type} value={value}
+          onChange={e => onChange(type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)}
+          min={min} step={step}
+          style={{
+            flex: 1, padding: "8px 12px", border: `1px solid ${COLORS.border}`,
+            borderRadius: prefix ? "0 6px 6px 0" : suffix ? "6px 0 0 6px" : 6,
+            fontSize: 14, outline: "none", width: "100%",
+          }}
+        />
+        {suffix && <span style={{ padding: "8px 10px", background: COLORS.sandLight, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRadius: "0 6px 6px 0", fontSize: 14, color: COLORS.textMuted, whiteSpace: "nowrap" }}>{suffix}</span>}
+      </div>
+      {helpText && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 3 }}>{helpText}</div>}
+    </div>
+  );
+}
+
+function Button({ children, onClick, variant = "primary", size = "md", style: extraStyle }) {
+  const base = { border: "none", cursor: "pointer", fontWeight: 600, borderRadius: 6, transition: "all 0.15s ease",
+    fontSize: size === "sm" ? 12 : 14, padding: size === "sm" ? "6px 12px" : "10px 20px" };
+  const variants = {
+    primary: { background: COLORS.primary, color: "#fff" },
+    accent: { background: COLORS.accent, color: "#fff" },
+    outline: { background: "transparent", color: COLORS.primary, border: `1.5px solid ${COLORS.primary}` },
+    ghost: { background: "transparent", color: COLORS.textMuted },
+    danger: { background: COLORS.danger, color: "#fff" },
+  };
+  return <button className="tp-btn" onClick={onClick} style={{ ...base, ...variants[variant], ...extraStyle }}>{children}</button>;
+}
+
+function App() {
+  const persisted = loadState();
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [settings, setSettings] = useState(persisted?.settings || DEFAULT_SETTINGS);
+  const [channels, setChannels] = useState(persisted?.channels || SAMPLE_CHANNELS);
+  const [isSample, setIsSample] = useState(persisted?.isSample !== undefined ? persisted.isSample : true);
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [showAddChannel, setShowAddChannel] = useState(false);
+  const [showAddEntry, setShowAddEntry] = useState(false);
+  const [newChannel, setNewChannel] = useState({ name: "", type: "ongoing", startDate: "" });
+  const [newEntry, setNewEntry] = useState({ month: "", dollars: 0, hours: 0, leads: 0, discoveryCalls: 0, clientsWon: 0 });
+  const [calcInputs, setCalcInputs] = useState(persisted?.calcInputs || { name: "", monthlyDollars: 0, monthlyHours: 0, monthsToResults: 3, expectedMonthlyLeads: 1 });
+
+  useEffect(() => {
+    saveState({ settings, channels, calcInputs, isSample });
+  }, [settings, channels, calcInputs, isSample]);
+
+  const clv = settings.avgRevenuePerClient * settings.avgClientLifetimeYears;
+  const conversionRate = settings.discoveryToClientPct / 100;
+
+  const channelStats = useMemo(() => {
+    return channels.map(ch => {
+      const totalDollars = ch.entries.reduce((s, e) => s + e.dollars, 0);
+      const totalHours = ch.entries.reduce((s, e) => s + e.hours, 0);
+      const totalTimeCost = totalHours * settings.hourlyRate;
+      const totalInvestment = totalDollars + totalTimeCost;
+      const totalLeads = ch.entries.reduce((s, e) => s + e.leads, 0);
+      const totalCalls = ch.entries.reduce((s, e) => s + e.discoveryCalls, 0);
+      const totalClients = ch.entries.reduce((s, e) => s + e.clientsWon, 0);
+      const costPerLead = totalLeads > 0 ? totalInvestment / totalLeads : null;
+      const costPerClient = totalClients > 0 ? totalInvestment / totalClients : null;
+      const revenueGenerated = totalClients * clv;
+      const roi = totalInvestment > 0 ? ((revenueGenerated - totalInvestment) / totalInvestment) * 100 : 0;
+      const months = ch.entries.length;
+      return { ...ch, totalDollars, totalHours, totalTimeCost, totalInvestment, totalLeads, totalCalls, totalClients, costPerLead, costPerClient, revenueGenerated, roi, months };
+    });
+  }, [channels, settings, clv]);
+
+  const totals = useMemo(() => {
+    const t = channelStats.reduce((acc, ch) => ({
+      dollars: acc.dollars + ch.totalDollars, hours: acc.hours + ch.totalHours,
+      investment: acc.investment + ch.totalInvestment, leads: acc.leads + ch.totalLeads,
+      calls: acc.calls + ch.totalCalls, clients: acc.clients + ch.totalClients,
+      revenue: acc.revenue + ch.revenueGenerated,
+    }), { dollars: 0, hours: 0, investment: 0, leads: 0, calls: 0, clients: 0, revenue: 0 });
+    t.roi = t.investment > 0 ? ((t.revenue - t.investment) / t.investment) * 100 : 0;
+    t.costPerLead = t.leads > 0 ? t.investment / t.leads : null;
+    t.costPerClient = t.clients > 0 ? t.investment / t.clients : null;
+    return t;
+  }, [channelStats]);
+
+  const fmt = (n) => n == null ? "—" : "$" + Math.round(n).toLocaleString("en-US");
+  const fmtPct = (n) => n == null ? "—" : n.toFixed(0) + "%";
+
+  function addChannel() {
+    if (!newChannel.name.trim()) return;
+    const ch = { id: "ch_" + Date.now(), name: newChannel.name.trim(), type: newChannel.type, startDate: newChannel.startDate || new Date().toISOString().slice(0, 7), entries: [] };
+    setChannels([...channels, ch]);
+    setNewChannel({ name: "", type: "ongoing", startDate: "" });
+    setShowAddChannel(false);
+    setSelectedChannel(ch.id);
+    setIsSample(false);
+  }
+
+  function deleteChannel(id) {
+    if (!confirm("Delete this channel and all its data?")) return;
+    setChannels(channels.filter(c => c.id !== id));
+    if (selectedChannel === id) setSelectedChannel(null);
+  }
+
+  function addEntry() {
+    if (!selectedChannel || !newEntry.month) return;
+    setChannels(channels.map(ch => {
+      if (ch.id !== selectedChannel) return ch;
+      const exists = ch.entries.find(e => e.month === newEntry.month);
+      if (exists) {
+        return { ...ch, entries: ch.entries.map(e => e.month === newEntry.month ? { ...newEntry } : e) };
+      }
+      return { ...ch, entries: [...ch.entries, { ...newEntry }].sort((a, b) => a.month.localeCompare(b.month)) };
+    }));
+    setNewEntry({ month: "", dollars: 0, hours: 0, leads: 0, discoveryCalls: 0, clientsWon: 0 });
+    setShowAddEntry(false);
+  }
+
+  function deleteEntry(channelId, month) {
+    setChannels(channels.map(ch => ch.id !== channelId ? ch : { ...ch, entries: ch.entries.filter(e => e.month !== month) }));
+  }
+
+  function clearAllData() {
+    if (!confirm("Clear all channels and start fresh? This cannot be undone.")) return;
+    setChannels([]);
+    setSelectedChannel(null);
+    setIsSample(false);
+  }
+
+  function loadSampleData() {
+    if (channels.length > 0 && !confirm("This will replace your current data with sample data. Continue?")) return;
+    setChannels(SAMPLE_CHANNELS);
+    setIsSample(true);
+  }
+
+  function exportData() {
+    const data = { settings, channels, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `two-palms-roi-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.settings) setSettings(data.settings);
+        if (data.channels) setChannels(data.channels);
+        setIsSample(false);
+        alert("Data imported successfully.");
+      } catch (err) { alert("Invalid file."); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const selectedChannelData = channelStats.find(c => c.id === selectedChannel);
+
+  const calcProjections = useMemo(() => {
+    const { monthlyDollars, monthlyHours, monthsToResults, expectedMonthlyLeads } = calcInputs;
+    const monthlyTimeCost = monthlyHours * settings.hourlyRate;
+    const monthlyTotalCost = monthlyDollars + monthlyTimeCost;
+    const rampUpCost = monthlyTotalCost * monthsToResults;
+    const costPerLead = expectedMonthlyLeads > 0 ? monthlyTotalCost / expectedMonthlyLeads : null;
+    const leadsToClient = conversionRate > 0 ? 1 / conversionRate : null;
+    const monthsPerClient = leadsToClient && expectedMonthlyLeads > 0 ? leadsToClient / expectedMonthlyLeads : null;
+    const costPerClient = monthsPerClient ? monthsPerClient * monthlyTotalCost : null;
+
+    const projection = [];
+    let cumCost = 0, cumLeads = 0;
+    for (let m = 1; m <= 12; m++) {
+      cumCost += monthlyTotalCost;
+      if (m > monthsToResults) cumLeads += expectedMonthlyLeads;
+      const expectedClients = Math.floor(cumLeads * conversionRate);
+      projection.push({ month: `M${m}`, cost: Math.round(cumCost), revenue: Math.round(expectedClients * clv), leads: cumLeads });
+    }
+    return { monthlyTimeCost, monthlyTotalCost, rampUpCost, costPerLead, leadsToClient, monthsPerClient, costPerClient, projection };
+  }, [calcInputs, settings, clv, conversionRate]);
+
+  const chartData = useMemo(() => channelStats.map((ch, i) => ({
+    name: ch.name.length > 14 ? ch.name.slice(0, 14) + "…" : ch.name,
+    investment: Math.round(ch.totalInvestment),
+    leads: ch.totalLeads,
+    revenue: Math.round(ch.revenueGenerated),
+    fill: CHART_COLORS[i % CHART_COLORS.length],
+  })), [channelStats]);
+
+  // --- TABS ---
+  const renderDashboard = () => (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, fontWeight: 400, margin: 0 }}>Marketing Performance Overview</h2>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "4px 0 0" }}>
+          Client lifetime value: {fmt(clv)} · Conversion rate: {settings.discoveryToClientPct}%
+          {isSample && <span style={{ marginLeft: 10, background: COLORS.sand, color: COLORS.primaryDark, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>SAMPLE DATA</span>}
+        </p>
+      </div>
+
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+        <MetricCard label="Total Invested" value={fmt(totals.investment)} sub={`${fmt(totals.dollars)} cash + ${totals.hours}hrs time`} />
+        <MetricCard label="Total Leads" value={totals.leads} sub={totals.costPerLead ? `${fmt(totals.costPerLead)} per lead` : "No leads yet"} />
+        <MetricCard label="Clients Won" value={totals.clients} sub={totals.costPerClient ? `${fmt(totals.costPerClient)} acquisition cost` : "No clients yet"} />
+        <MetricCard label="Lifetime ROI" value={fmtPct(totals.roi)} sub={`${fmt(totals.revenue)} projected LTV`} color={totals.roi > 0 ? COLORS.success : totals.roi < 0 ? COLORS.danger : COLORS.text} />
+      </div>
+
+      {channelStats.length > 0 && (
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 24 }}>
+          <div style={{ flex: 1, minWidth: 300, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.textMuted, margin: "0 0 16px" }}>Investment by Channel</h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: COLORS.textMuted }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: COLORS.textMuted }} axisLine={false} tickLine={false} tickFormatter={v => "$" + (v >= 1000 ? (v/1000).toFixed(0) + "k" : v)} />
+                <Tooltip formatter={(v) => ["$" + v.toLocaleString(), "Investment"]} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${COLORS.border}` }} />
+                <Bar dataKey="investment" radius={[4, 4, 0, 0]}>
+                  {chartData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 300, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.textMuted, margin: "0 0 16px" }}>Leads by Channel</h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: COLORS.textMuted }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: COLORS.textMuted }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${COLORS.border}` }} />
+                <Bar dataKey="leads" radius={[4, 4, 0, 0]}>
+                  {chartData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {channelStats.length > 0 && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.textMuted, margin: "0 0 14px" }}>Channel Comparison</h3>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+                  {["Channel", "Months", "Cash Spent", "Hours", "Time Cost", "Total Cost", "Leads", "$/Lead", "Clients", "$/Client", "ROI"].map(h => (
+                    <th key={h} style={{ textAlign: h === "Channel" ? "left" : "right", padding: "8px 10px", color: COLORS.textMuted, fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {channelStats.map((ch, i) => (
+                  <tr key={ch.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <td style={{ padding: "10px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: CHART_COLORS[i % CHART_COLORS.length], marginRight: 8 }} />
+                      {ch.name}
+                    </td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.months}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{fmt(ch.totalDollars)}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.totalHours}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{fmt(ch.totalTimeCost)}</td>
+                    <td style={{ textAlign: "right", padding: "10px", fontWeight: 600 }}>{fmt(ch.totalInvestment)}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.totalLeads}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.costPerLead ? fmt(ch.costPerLead) : "—"}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.totalClients}</td>
+                    <td style={{ textAlign: "right", padding: "10px" }}>{ch.costPerClient ? fmt(ch.costPerClient) : "—"}</td>
+                    <td style={{ textAlign: "right", padding: "10px", fontWeight: 600, color: ch.roi > 0 ? COLORS.success : ch.roi < -50 ? COLORS.danger : COLORS.text }}>{fmtPct(ch.roi)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {channelStats.length === 0 && (
+        <div style={{ textAlign: "center", padding: 60, color: COLORS.textMuted }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🌴</div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No channels yet</div>
+          <div style={{ fontSize: 13, marginBottom: 16 }}>Add your first marketing channel to start tracking ROI.</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <Button onClick={() => { setActiveTab("channels"); setShowAddChannel(true); }}>Add a Channel</Button>
+            <Button variant="outline" onClick={loadSampleData}>Load Sample Data</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderChannels = () => (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, fontWeight: 400, margin: 0 }}>Marketing Channels</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {channels.length > 0 && <Button variant="ghost" size="sm" onClick={clearAllData}>Clear All</Button>}
+          <Button onClick={() => setShowAddChannel(true)}>+ Add Channel</Button>
+        </div>
+      </div>
+
+      {showAddChannel && (
+        <div style={{ background: COLORS.sandLight, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 14px" }}>New Channel</h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div style={{ flex: 2, minWidth: 180 }}>
+              <InputField label="Channel Name" value={newChannel.name} onChange={v => setNewChannel({ ...newChannel, name: v })} />
+            </div>
+            <div style={{ flex: 1, minWidth: 120 }}>
+              <InputField label="Start Month" type="month" value={newChannel.startDate} onChange={v => setNewChannel({ ...newChannel, startDate: v })} />
+            </div>
+            <div style={{ display: "flex", gap: 8, paddingBottom: 16 }}>
+              <Button onClick={addChannel}>Add</Button>
+              <Button variant="ghost" onClick={() => setShowAddChannel(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+        {channelStats.map((ch, i) => (
+          <div
+            key={ch.id}
+            className="tp-card-hover"
+            onClick={() => setSelectedChannel(selectedChannel === ch.id ? null : ch.id)}
+            style={{
+              background: selectedChannel === ch.id ? COLORS.primary : COLORS.card,
+              color: selectedChannel === ch.id ? "#fff" : COLORS.text,
+              border: `1px solid ${selectedChannel === ch.id ? COLORS.primary : COLORS.border}`,
+              borderRadius: 10, padding: "16px 20px", cursor: "pointer",
+              flex: "1 1 200px", maxWidth: 280,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: CHART_COLORS[i % CHART_COLORS.length] }} />
+              <span style={{ fontSize: 11, opacity: 0.7 }}>{ch.months} mo</span>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{ch.name}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.8 }}>
+              <span>{fmt(ch.totalInvestment)} invested</span>
+              <span>{ch.totalLeads} leads</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedChannelData && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+            <h3 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, fontWeight: 400, margin: 0 }}>{selectedChannelData.name}</h3>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button size="sm" onClick={() => { setNewEntry({ month: "", dollars: 0, hours: 0, leads: 0, discoveryCalls: 0, clientsWon: 0 }); setShowAddEntry(true); }}>+ Add Month</Button>
+              <Button variant="danger" size="sm" onClick={() => deleteChannel(selectedChannel)}>Delete</Button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+            <MetricCard small label="Total Invested" value={fmt(selectedChannelData.totalInvestment)} />
+            <MetricCard small label="Cost / Lead" value={selectedChannelData.costPerLead ? fmt(selectedChannelData.costPerLead) : "—"} />
+            <MetricCard small label="Cost / Client" value={selectedChannelData.costPerClient ? fmt(selectedChannelData.costPerClient) : "—"} />
+            <MetricCard small label="ROI" value={fmtPct(selectedChannelData.roi)} color={selectedChannelData.roi > 0 ? COLORS.success : COLORS.text} />
+          </div>
+
+          {showAddEntry && (
+            <div style={{ background: COLORS.sandLight, borderRadius: 8, padding: 16, marginBottom: 16 }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div style={{ minWidth: 120 }}><InputField label="Month" type="month" value={newEntry.month} onChange={v => setNewEntry({ ...newEntry, month: v })} /></div>
+                <div style={{ minWidth: 90 }}><InputField label="$ Spent" type="number" prefix="$" value={newEntry.dollars} onChange={v => setNewEntry({ ...newEntry, dollars: v })} /></div>
+                <div style={{ minWidth: 80 }}><InputField label="Hours" type="number" value={newEntry.hours} onChange={v => setNewEntry({ ...newEntry, hours: v })} /></div>
+                <div style={{ minWidth: 70 }}><InputField label="Leads" type="number" value={newEntry.leads} onChange={v => setNewEntry({ ...newEntry, leads: v })} /></div>
+                <div style={{ minWidth: 70 }}><InputField label="Calls" type="number" value={newEntry.discoveryCalls} onChange={v => setNewEntry({ ...newEntry, discoveryCalls: v })} /></div>
+                <div style={{ minWidth: 70 }}><InputField label="Clients" type="number" value={newEntry.clientsWon} onChange={v => setNewEntry({ ...newEntry, clientsWon: v })} /></div>
+                <div style={{ display: "flex", gap: 6, paddingBottom: 16 }}>
+                  <Button size="sm" onClick={addEntry}>Save</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowAddEntry(false)}>✕</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedChannelData.entries.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+                    {["Month", "$ Spent", "Hours", "Time Cost", "Total", "Leads", "Calls", "Clients", ""].map(h => (
+                      <th key={h} style={{ textAlign: h === "Month" ? "left" : "right", padding: "8px", color: COLORS.textMuted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedChannelData.entries.map(e => (
+                    <tr key={e.month} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "8px", fontWeight: 500 }}>{e.month}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>{fmt(e.dollars)}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>{e.hours}</td>
+                      <td style={{ textAlign: "right", padding: "8px", color: COLORS.textMuted }}>{fmt(e.hours * settings.hourlyRate)}</td>
+                      <td style={{ textAlign: "right", padding: "8px", fontWeight: 600 }}>{fmt(e.dollars + e.hours * settings.hourlyRate)}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>{e.leads}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>{e.discoveryCalls}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>{e.clientsWon}</td>
+                      <td style={{ textAlign: "right", padding: "8px" }}>
+                        <button onClick={() => deleteEntry(selectedChannel, e.month)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, fontSize: 14 }}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: 30, color: COLORS.textMuted, fontSize: 13 }}>No monthly data yet. Click "+ Add Month" to start tracking.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCalculator = () => (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, fontWeight: 400, margin: 0 }}>Initiative Calculator</h2>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "4px 0 0" }}>Model a new marketing initiative before committing to it.</p>
+      </div>
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 300px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px", textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.textMuted }}>Inputs</h3>
+          <InputField label="Initiative Name" value={calcInputs.name} onChange={v => setCalcInputs({ ...calcInputs, name: v })} helpText='e.g. "Podcast Sponsorship" or "Speaking Engagements"' />
+          <InputField label="Monthly Cash Cost" type="number" prefix="$" value={calcInputs.monthlyDollars} onChange={v => setCalcInputs({ ...calcInputs, monthlyDollars: v })} />
+          <InputField label="Monthly Hours" type="number" value={calcInputs.monthlyHours} onChange={v => setCalcInputs({ ...calcInputs, monthlyHours: v })} suffix="hrs" helpText={`@ ${fmt(settings.hourlyRate)}/hr = ${fmt(calcInputs.monthlyHours * settings.hourlyRate)}/mo time cost`} />
+          <InputField label="Months Before First Results" type="number" value={calcInputs.monthsToResults} onChange={v => setCalcInputs({ ...calcInputs, monthsToResults: v })} helpText="How long before this channel starts producing leads" />
+          <InputField label="Expected Leads Per Month" type="number" value={calcInputs.expectedMonthlyLeads} onChange={v => setCalcInputs({ ...calcInputs, expectedMonthlyLeads: v })} step="0.5" helpText="Once ramped up, how many new leads per month" />
+        </div>
+
+        <div style={{ flex: "1 1 380px" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24, marginBottom: 20 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px", textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.textMuted }}>Projected Economics</h3>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <MetricCard small label="Monthly Burn" value={fmt(calcProjections.monthlyTotalCost)} sub={`${fmt(calcInputs.monthlyDollars)} cash + ${fmt(calcProjections.monthlyTimeCost)} time`} />
+              <MetricCard small label="Ramp-Up Cost" value={fmt(calcProjections.rampUpCost)} sub={`${calcInputs.monthsToResults} months before leads`} />
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <MetricCard small label="Projected $/Lead" value={calcProjections.costPerLead ? fmt(calcProjections.costPerLead) : "—"} />
+              <MetricCard small label="Projected $/Client" value={calcProjections.costPerClient ? fmt(calcProjections.costPerClient) : "—"} sub={calcProjections.leadsToClient ? `~${Math.round(calcProjections.leadsToClient)} leads per client` : ""} />
+            </div>
+            <div style={{ background: COLORS.sandLight, borderRadius: 8, padding: 14, fontSize: 13, lineHeight: 1.5 }}>
+              {calcProjections.costPerClient && calcProjections.costPerClient < clv ? (
+                <span style={{ color: COLORS.success }}>✓ Projected acquisition cost ({fmt(calcProjections.costPerClient)}) is below your client LTV ({fmt(clv)}). This channel should be profitable long-term.</span>
+              ) : calcProjections.costPerClient ? (
+                <span style={{ color: COLORS.warning }}>⚠ Projected acquisition cost ({fmt(calcProjections.costPerClient)}) exceeds client LTV ({fmt(clv)}). You'd need higher conversion or more leads/month to make this work.</span>
+              ) : (
+                <span>Enter expected leads per month to see profitability projection.</span>
+              )}
+            </div>
+          </div>
+
+          {calcProjections.projection.length > 0 && calcProjections.monthlyTotalCost > 0 && (
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px", textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.textMuted }}>12-Month Projection: Cost vs. Revenue</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={calcProjections.projection} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: COLORS.textMuted }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: COLORS.textMuted }} axisLine={false} tickLine={false} tickFormatter={v => "$" + (v >= 1000 ? (v/1000).toFixed(0) + "k" : v)} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${COLORS.border}` }} formatter={(v) => ["$" + v.toLocaleString()]} />
+                  <Bar dataKey="cost" name="Cumulative Cost" fill={COLORS.accent} radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="revenue" name="Projected LTV" fill={COLORS.primary} radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: COLORS.textMuted }}><span style={{ display: "inline-block", width: 10, height: 10, background: COLORS.accent, borderRadius: 2, marginRight: 4 }} />Cumulative Cost</span>
+                <span style={{ fontSize: 11, color: COLORS.textMuted }}><span style={{ display: "inline-block", width: 10, height: 10, background: COLORS.primary, borderRadius: 2, marginRight: 4 }} />Projected Client LTV</span>
+              </div>
+            </div>
+          )}
+
+          {totals.costPerLead && (
+            <div style={{ background: COLORS.sandLight, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginTop: 16, fontSize: 13 }}>
+              <strong>How this compares to your current channels:</strong>
+              <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                Your current blended cost per lead across all channels is <strong>{fmt(totals.costPerLead)}</strong>.
+                {calcProjections.costPerLead && (
+                  calcProjections.costPerLead < totals.costPerLead
+                    ? <span style={{ color: COLORS.success }}> This initiative would produce leads more cheaply ({fmt(calcProjections.costPerLead)}).</span>
+                    : <span style={{ color: COLORS.warning }}> This initiative's projected cost per lead ({fmt(calcProjections.costPerLead)}) is higher.</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, fontWeight: 400, margin: 0 }}>Settings</h2>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "4px 0 0" }}>These defaults drive all ROI calculations across the tool.</p>
+      </div>
+      <div style={{ maxWidth: 480, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24, marginBottom: 20 }}>
+        <InputField label="Your Hourly Rate" type="number" prefix="$" value={settings.hourlyRate} onChange={v => setSettings({ ...settings, hourlyRate: v })} helpText="Used to calculate the true cost of your time spent on marketing" />
+        <InputField label="Average Annual Revenue Per Client" type="number" prefix="$" value={settings.avgRevenuePerClient} onChange={v => setSettings({ ...settings, avgRevenuePerClient: v })} />
+        <InputField label="Average Client Lifetime" type="number" value={settings.avgClientLifetimeYears} onChange={v => setSettings({ ...settings, avgClientLifetimeYears: v })} suffix="years" />
+        <div style={{ background: COLORS.sandLight, borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 14 }}>
+          <strong>Client Lifetime Value:</strong> {fmt(clv)}
+        </div>
+        <InputField label="Discovery Call → Client Conversion Rate" type="number" value={settings.discoveryToClientPct} onChange={v => setSettings({ ...settings, discoveryToClientPct: v })} suffix="%" helpText="What percentage of discovery calls become paying clients" />
+        <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 16, marginTop: 8 }}>
+          <Button variant="outline" size="sm" onClick={() => setSettings(DEFAULT_SETTINGS)}>Reset Defaults</Button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 480, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.textMuted }}>Data Management</h3>
+        <p style={{ fontSize: 12, color: COLORS.textMuted, margin: "0 0 14px", lineHeight: 1.5 }}>
+          Your data is saved locally in this browser. Export to back up or move to another device.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Button variant="outline" size="sm" onClick={exportData}>Export Data (.json)</Button>
+          <label style={{ display: "inline-block" }}>
+            <input type="file" accept=".json" onChange={importData} style={{ display: "none" }} />
+            <span className="tp-btn" style={{ display: "inline-block", background: "transparent", color: COLORS.primary, border: `1.5px solid ${COLORS.primary}`, borderRadius: 6, fontSize: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 600 }}>Import Data</span>
+          </label>
+          <Button variant="ghost" size="sm" onClick={loadSampleData}>Load Sample Data</Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <header style={{ background: COLORS.primaryDark, color: "#fff", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 22 }}>🌴🌴</span>
+          <div>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 18, lineHeight: 1.1 }}>Two Palms Financial</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.7 }}>Marketing ROI Tracker</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.6 }}>Internal Tool</div>
+      </header>
+
+      <nav style={{ background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, padding: "0 24px", display: "flex", overflowX: "auto" }}>
+        {TABS.map(tab => (
+          <button key={tab.id} className="tp-tab" onClick={() => setActiveTab(tab.id)}
+            style={{
+              background: "none", border: "none",
+              borderBottom: activeTab === tab.id ? `2.5px solid ${COLORS.primary}` : "2.5px solid transparent",
+              padding: "12px 18px", cursor: "pointer", fontSize: 13,
+              fontWeight: activeTab === tab.id ? 600 : 400,
+              color: activeTab === tab.id ? COLORS.primary : COLORS.textMuted,
+              whiteSpace: "nowrap", transition: "all 0.15s ease",
+            }}
+          >
+            <span style={{ marginRight: 6 }}>{tab.icon}</span>{tab.label}
+          </button>
+        ))}
+      </nav>
+
+      <main style={{ flex: 1, padding: "24px", maxWidth: 1100, width: "100%", margin: "0 auto" }}>
+        {activeTab === "dashboard" && renderDashboard()}
+        {activeTab === "channels" && renderChannels()}
+        {activeTab === "calculator" && renderCalculator()}
+        {activeTab === "settings" && renderSettings()}
+      </main>
+
+      <footer style={{ padding: "16px 24px", textAlign: "center", fontSize: 11, color: COLORS.textMuted, borderTop: `1px solid ${COLORS.border}` }}>
+        Two Palms Financial · Internal Use Only · All calculations are estimates for planning purposes
+      </footer>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
